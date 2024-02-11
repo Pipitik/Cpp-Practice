@@ -13,7 +13,8 @@ private:
 	template <bool Is_const>
 	class base_iterator;
 
-	static constexpr size_t _SIZE_BUCKET = 1 << 10;
+	static constexpr int _SIZE_BUCKET = 1 << 10;
+	static constexpr int _MINIMUM_MAP_SIZE = 4;
 
 public:
 	using value_type = T;
@@ -29,6 +30,8 @@ public:
 	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
 private:
+
+	// Index of a map bucket
 	class Index_bucket
 	{
 	public:
@@ -36,10 +39,16 @@ private:
 		using difference_type = typename Deque::difference_type;
 
 		Index_bucket() noexcept : _bucket(0), _offset(0) {}
-		Index_bucket(size_type buck, size_type off) noexcept : _bucket(buck), _offset(off) {}
+
+		Index_bucket(size_type buck, size_type off) noexcept
+			: _bucket(buck)
+			, _offset(off) {}
+
 		Index_bucket(const Index_bucket&) noexcept = default;
+
 		Index_bucket& operator=(const Index_bucket&) noexcept = default;
 
+		// Shift the offset in the bucket
 		Index_bucket& operator++() noexcept
 		{
 			++_offset;
@@ -48,6 +57,7 @@ private:
 			return *this;
 		}
 
+		// Shift the offset in the bucket
 		Index_bucket operator++(int) noexcept
 		{
 			Index_bucket ret(*this);
@@ -55,6 +65,7 @@ private:
 			return ret;
 		}
 
+		// Shift the offset in the bucket
 		Index_bucket& operator--() noexcept
 		{
 			if (_bucket != 0 or _offset != 0) {
@@ -66,6 +77,7 @@ private:
 			return *this;
 		}
 
+		// Shift the offset in the bucket
 		Index_bucket operator--(int) noexcept
 		{
 			Index_bucket ret(*this);
@@ -83,9 +95,9 @@ private:
 			return _offset;
 		}
 
-		void move_bucket(difference_type number) noexcept
+		void set_bucket(difference_type number) noexcept
 		{
-			_bucket += number;
+			_bucket = number;
 		}
 
 		void swap(Index_bucket& other) noexcept
@@ -95,8 +107,8 @@ private:
 		}
 
 	private:
-		size_type _bucket;
-		size_type _offset;
+		size_type _bucket; 	// Bucket of the map
+		size_type _offset; 	// Offset from the begging of the bucket
 	};
 
 	template <bool Is_const>
@@ -178,7 +190,8 @@ private:
 			return ret;
 		}
 
-		[[nodiscard]] friend base_iterator operator+(difference_type offset, base_iterator it) noexcept
+		[[nodiscard]] friend base_iterator
+		operator+(difference_type offset, base_iterator it) noexcept
 		{
 			return it += offset;
 		}
@@ -190,12 +203,14 @@ private:
 			return ret;
 		}
 
-		[[nodiscard]] friend base_iterator operator-(difference_type offset, base_iterator it) noexcept
+		[[nodiscard]] friend base_iterator
+		operator-(difference_type offset, base_iterator it) noexcept
 		{
 			return it -= offset;
 		}
 
-		[[nodiscard]] difference_type operator-(const base_iterator& other) const noexcept
+		[[nodiscard]] difference_type
+		operator-(const base_iterator& other) const noexcept
 		{
 			return static_cast<difference_type>(_offset - other._offset);
 		}
@@ -205,7 +220,8 @@ private:
 			return _offset == other._offset;
 		}
 
-		[[nodiscard]] std::strong_ordering operator<=>(const base_iterator& other) const noexcept
+		[[nodiscard]] std::strong_ordering
+		operator<=>(const base_iterator& other) const noexcept
 		{
 			return _offset <=> other._offset;
 		}
@@ -250,7 +266,10 @@ public:
 	template
 	<
 		typename InIt,
-		std::enable_if_t<std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<InIt>::iterator_category>, int> = 0
+		std::enable_if_t<
+			std::is_base_of_v<
+			std::input_iterator_tag,
+			typename std::iterator_traits<InIt>::iterator_category>, int> = 0
 	>
 	Deque(InIt begin, InIt end) : Deque()
 	{
@@ -285,31 +304,7 @@ public:
 
 	void push_back(const T& value)
 	{
-		if ((_last.bucket() == _size_map - 1 and _last.offset() == _SIZE_BUCKET - 1) or empty()) {
-			_reallocate_map();
-		}
-
-		Index_bucket new_last = _last;
-		if (!empty()) {
-			++new_last;
-		}
-
-		if (_map[new_last.bucket()] == nullptr) {
-			_map[new_last.bucket()] = reinterpret_cast<T*>(new std::byte[_SIZE_BUCKET * sizeof(T)]);
-
-			try {
-				new (_map[new_last.bucket()] + new_last.offset()) T(value);
-			}
-			catch (...) {
-				delete[] reinterpret_cast<std::byte*>(_map[new_last.bucket()]);
-				throw;
-			}
-		}
-		else {
-			new (_map[new_last.bucket()] + new_last.offset()) T(value);
-		}
-		_last = new_last;
-		++_size;
+		_push_back_internal(value);
 	}
 
 	void pop_back() noexcept
@@ -321,31 +316,7 @@ public:
 
 	void push_front(const T& value)
 	{
-		if (_first.bucket() == 0 and _first.offset() == 0) {
-			_reallocate_map();
-		}
-
-		Index_bucket new_first = _first;
-		if (!empty()) {
-			--new_first;
-		}
-
-		if (_map[new_first.bucket()] == nullptr) {
-			_map[new_first.bucket()] = reinterpret_cast<T*>(new std::byte[_SIZE_BUCKET * sizeof(T)]);
-
-			try {
-				new (_map[new_first.bucket()] + new_first.offset()) T(value);
-			}
-			catch (...) {
-				delete[] reinterpret_cast<std::byte*>(_map[new_first.bucket()]);
-				throw;
-			}
-		}
-		else {
-			new (_map[new_first.bucket()] + new_first.offset()) T(value);
-		}
-		_first = new_first;
-		++_size;
+		_push_front_internal(value);
 	}
 
 	void pop_front() noexcept
@@ -363,7 +334,7 @@ public:
 	void resize(size_type count)
 	{
 		while (_size < count) {
-			push_back(T());
+			_push_back_internal();
 		}
 
 		while (_size > count) {
@@ -374,7 +345,7 @@ public:
 	void resize(size_type count, const T& value)
 	{
 		while (_size < count) {
-			push_back(value);
+			_push_back_internal(value);
 		}
 
 		while (_size > count) {
@@ -387,13 +358,14 @@ public:
 		size_type off = static_cast<size_type>(begin() - where);
 
 		if (off < _size / 2) {
-			push_front(value);
+			_push_front_internal(value);
 			std::rotate(begin(), std::next(begin()), begin() + static_cast<difference_type>(1 + off));
 		}
 		else {
-			push_back(value);
+			_push_back_internal(value);
 			std::rotate(begin() + static_cast<difference_type>(1 + off), std::prev(end()), end());
 		}
+
 		return begin() + static_cast<difference_type>(off);
 	}
 
@@ -425,6 +397,7 @@ public:
 				pop_back();
 			}
 		}
+
 		return begin() + static_cast<difference_type>(off);
 	}
 
@@ -543,30 +516,104 @@ public:
 
 	[[nodiscard]] bool empty() const noexcept
 	{
-		return size() == 0;
+		return _size == 0;
 	}
 
 private:
-	size_type _size_map;
-	value_type** _map; // Pointer to array of pointers to blocks
-	size_type _size;
-	Index_bucket _first; // The index of first element
-	Index_bucket _last; // The index of past-the-end element
+	size_type _size_map; 	// Size of array of pointers to blocks;
+	value_type** _map; 		// Pointer to array of pointers to blocks
+	size_type _size; 		// Number of elements
+	Index_bucket _first; 	// The index of first element
+	Index_bucket _last; 	// The index of past-the-end element
 
-	void _reallocate_map()
+	template <typename... Targs>
+	void _push_back_internal(const Targs&... args)
 	{
-		size_type new_size_map = _size_map == 0 ? 1 : _size_map * 2;
+		static_assert(sizeof...(args) <= 1, "_push_back_internal: too many arguments");
+
+		if ((_last.bucket() == _size_map - 1 and
+			_last.offset() == _SIZE_BUCKET - 1) or empty()) {
+			_reallocate_map(_size_map == 0 ? _MINIMUM_MAP_SIZE : _size_map * 2);
+		}
+
+		Index_bucket new_last = _last;
+
+		if (!empty()) {
+			++new_last;
+		}
+
+		if (_map[new_last.bucket()] == nullptr) {
+			_map[new_last.bucket()] =
+				reinterpret_cast<T*>(new std::byte[_SIZE_BUCKET * sizeof(T)]);
+
+			try {
+				new(_map[new_last.bucket()] + new_last.offset()) T(args...);
+			}
+			catch (...) {
+				delete[] reinterpret_cast<std::byte*>(_map[new_last.bucket()]);
+				_map[new_last.bucket()] = nullptr;
+				throw;
+			}
+		}
+		else {
+			new(_map[new_last.bucket()] + new_last.offset()) T(args...);
+		}
+
+		_last = new_last;
+		++_size;
+	}
+
+	template <typename... Targs>
+	void _push_front_internal(const Targs&... args)
+	{
+		static_assert(sizeof...(args) <= 1, "_push_front_internal: too many arguments");
+
+		if (_first.bucket() == 0 and _first.offset() == 0) {
+			_reallocate_map(_size_map == 0 ? _MINIMUM_MAP_SIZE : _size_map * 2);
+		}
+
+		Index_bucket new_first = _first;
+
+		if (!empty()) {
+			--new_first;
+		}
+
+		if (_map[new_first.bucket()] == nullptr) {
+			_map[new_first.bucket()] = reinterpret_cast<T*>(new std::byte[_SIZE_BUCKET * sizeof(T)]);
+
+			try {
+				new(_map[new_first.bucket()] + new_first.offset()) T(args...);
+			}
+			catch (...) {
+				delete[] reinterpret_cast<std::byte*>(_map[new_first.bucket()]);
+				_map[new_first.bucket()] = nullptr;
+				throw;
+			}
+		}
+		else {
+			new(_map[new_first.bucket()] + new_first.offset()) T(args...);
+		}
+
+		_first = new_first;
+		++_size;
+	}
+
+	void _reallocate_map(size_type new_size_map)
+	{
 		T** new_map = new T*[new_size_map]();
-		size_type shift_index = _size_map / 4;
+
+		size_type middle_map = _size_map / 2;
+
 		if (_map != nullptr) {
 			for (size_type index = _first.bucket(); index <= _last.bucket(); ++index) {
-				new_map[index + shift_index] = _map[index];
+				new_map[middle_map - index] = _map[index]; // Try to keep pointers in the middle of the map
 			}
 			delete[] _map;
 		}
+
 		_map = new_map;
-		_first.move_bucket(shift_index);
-		_last.move_bucket(shift_index);
+		_first.set_bucket(static_cast<difference_type>(middle_map) - _first.bucket());
+		_last.set_bucket(static_cast<difference_type>(middle_map) - _last.bucket());
 		_size_map = new_size_map;
 	}
 
@@ -574,6 +621,7 @@ private:
 	{
 		size_type first_bucket = _first.bucket();
 		size_type last_bucket = _last.bucket();
+
 		while (!empty()) {
 			pop_back();
 		}
@@ -584,7 +632,6 @@ private:
 				_map[index] = nullptr;
 			}
 		}
-		_size = 0;
 	}
 
 	static iterator _make_iterator(const_iterator where) noexcept
