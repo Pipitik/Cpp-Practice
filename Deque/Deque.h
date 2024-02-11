@@ -353,20 +353,82 @@ public:
 		}
 	}
 
-	iterator insert(const_iterator where, const T& value)
+	iterator insert(const_iterator where, size_type count, const T& value)
 	{
-		size_type off = static_cast<size_type>(begin() - where);
+		size_type off = static_cast<difference_type>(where - begin());
 
 		if (off < _size / 2) {
-			_push_front_internal(value);
-			std::rotate(begin(), std::next(begin()), begin() + static_cast<difference_type>(1 + off));
+			for (size_type i = 0; i < count; ++i) {
+				_push_front_internal(value);
+			}
+			std::rotate(begin(), begin() + count, begin() + static_cast<difference_type>(count + off));
 		}
 		else {
-			_push_back_internal(value);
-			std::rotate(begin() + static_cast<difference_type>(1 + off), std::prev(end()), end());
+			for (size_type i = 0; i < count; ++i) {
+				_push_back_internal(value);
+			}
+			std::rotate(begin() + static_cast<difference_type>(off), end() - count, end());
 		}
 
 		return begin() + static_cast<difference_type>(off);
+	}
+
+	iterator insert(const_iterator where, const T& value)
+	{
+		return insert(where, 1, value);
+	}
+
+	template
+	<
+		typename InIt,
+		std::enable_if_t<
+			std::is_base_of_v<
+			std::input_iterator_tag,
+			typename std::iterator_traits<InIt>::iterator_category>, int> = 0
+	>
+	iterator insert(const_iterator where, InIt first, InIt last)
+	{
+		size_type off = static_cast<difference_type>(where - begin());
+
+		size_type old_size = _size;
+		if (off < _size / 2) {
+			constexpr bool is_bidi = std::is_base_of_v<std::bidirectional_iterator_tag,
+				typename std::iterator_traits<InIt>::iterator_category>;
+
+			if constexpr (is_bidi) {
+				while (first != last) {
+					_push_front_internal(*--last);
+				}
+			}
+			else {
+				for (; first != last; ++first) {
+					_push_front_internal(*first);
+				}
+			}
+
+			size_type count = _size - old_size;
+
+			if constexpr (is_bidi) {
+				std::reverse(begin(), begin() + count);
+			}
+
+			std::rotate(begin(), begin() + count, begin() + static_cast<difference_type>(count + off));
+		}
+		else {
+			for (; first != last; ++first) {
+				_push_back_internal(*first);
+			}
+
+			size_type count = _size - old_size;
+			std::rotate(begin() + static_cast<difference_type>(off), end() - count, end());
+		}
+
+		return begin() + static_cast<difference_type>(off);
+	}
+
+	iterator insert(const_iterator where, std::initializer_list<T> init)
+	{
+		return insert(where, init.begin(), init.end());
 	}
 
 	iterator erase(const_iterator where)

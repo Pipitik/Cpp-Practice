@@ -121,7 +121,7 @@ namespace TestsByMesyarik {
         double y = 0.0;
     };
 
-    /*void test4() {
+    void test4() {
 
         Deque<S> d(5, { 1, 2.0 });
         const Deque<S>& cd = d;
@@ -163,7 +163,7 @@ namespace TestsByMesyarik {
             ss += std::to_string(x.x);
         }
         assert(ss == "151");
-    }*/
+    }
 
     void test5() {
         Deque<int> d;
@@ -650,28 +650,28 @@ namespace TestsByUnrealf1 {
         assert(std::count(d.begin(), d.end(), NotDefaultConstructible{ 2 }) == 11000);
     }
 
-    //void testInsertAndErase() {
-    //    Deque<NotDefaultConstructible> d(10000, { 1 });
-    //    auto start_size = d.size();
+    void testInsertAndErase() {
+        Deque<NotDefaultConstructible> d(10000, { 1 });
+        auto start_size = d.size();
 
-    //    d.insert(d.begin() + start_size / 2, NotDefaultConstructible{ 2 });
-    //    assert(d.size() == start_size + 1);
-    //    d.erase(d.begin() + start_size / 2 - 1);
-    //    assert(d.size() == start_size);
+        d.insert(d.begin() + start_size / 2, NotDefaultConstructible{ 2 });
+        assert(d.size() == start_size + 1);
+        d.erase(d.begin() + start_size / 2 - 1);
+        assert(d.size() == start_size);
 
-    //    assert(size_t(std::count(d.begin(), d.end(), NotDefaultConstructible{ 1 })) ==
-    //        start_size - 1);
-    //    assert(std::count(d.begin(), d.end(), NotDefaultConstructible{ 2 }) == 1);
+        assert(size_t(std::count(d.begin(), d.end(), NotDefaultConstructible{ 1 })) ==
+            start_size - 1);
+        assert(std::count(d.begin(), d.end(), NotDefaultConstructible{ 2 }) == 1);
 
-    //    Deque<NotDefaultConstructible> copy;
-    //    for (const auto& item : d) {
-    //        copy.insert(copy.end(), item);
-    //    }
-    //    // std::copy(d.cbegin(), d.cend(), std::inserter(copy, copy.begin()));
+        Deque<NotDefaultConstructible> copy;
+        for (const auto& item : d) {
+            copy.insert(copy.end(), item);
+        }
+        // std::copy(d.cbegin(), d.cend(), std::inserter(copy, copy.begin()));
 
-    //    assert(d.size() == copy.size());
-    //    assert(std::equal(d.begin(), d.end(), copy.begin()));
-    //}
+        assert(d.size() == copy.size());
+        assert(std::equal(d.begin(), d.end(), copy.begin()));
+    }
 
     void testExceptions() {
         try {
@@ -718,7 +718,7 @@ int main() {
     TestsByMesyarik::test1();
     TestsByMesyarik::test2();
     TestsByMesyarik::test3();
-    //TestsByMesyarik::test4();
+    TestsByMesyarik::test4();
     TestsByMesyarik::test5();
     TestsByMesyarik::test6();
     TestsByMesyarik::test7();
@@ -735,7 +735,7 @@ int main() {
     TestsByUnrealf1::testIteratorsComparison();
     TestsByUnrealf1::testIteratorsAlgorithms();
     TestsByUnrealf1::testPushAndPop();
-    //TestsByUnrealf1::testInsertAndErase();
+    TestsByUnrealf1::testInsertAndErase();
     TestsByUnrealf1::testExceptions();
 
     std::cout << 0;
