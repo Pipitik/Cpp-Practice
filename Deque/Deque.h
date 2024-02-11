@@ -13,7 +13,7 @@ private:
 	template <bool Is_const>
 	class base_iterator;
 
-	static constexpr int _SIZE_BUCKET = 1 << 10;
+	static constexpr int _SIZE_BUCKET = 1 << 1;
 	static constexpr int _MINIMUM_MAP_SIZE = 4;
 
 public:
@@ -408,7 +408,9 @@ public:
 
 	[[nodiscard]] iterator end() noexcept
 	{
-		return iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset() + 1);
+		return empty()
+			? iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset())
+			: iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset() + 1);
 	}
 
 	[[nodiscard]] const_iterator begin() const noexcept
@@ -418,7 +420,9 @@ public:
 
 	[[nodiscard]] const_iterator end() const noexcept
 	{
-		return const_iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset() + 1);
+		return empty()
+			? const_iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset())
+			: const_iterator(_map, _last.bucket() * _SIZE_BUCKET + _last.offset() + 1);
 	}
 
 	[[nodiscard]] const_iterator cbegin() const noexcept
@@ -433,22 +437,22 @@ public:
 
 	[[nodiscard]] reverse_iterator rbegin() noexcept
 	{
-		return reverse_iterator(begin());
+		return reverse_iterator(end());
 	}
 
 	[[nodiscard]] reverse_iterator rend() noexcept
 	{
-		return reverse_iterator(end());
+		return reverse_iterator(begin());
 	}
 
 	[[nodiscard]] const_reverse_iterator rbegin() const noexcept
 	{
-		return const_reverse_iterator(begin());
+		return const_reverse_iterator(end());
 	}
 
 	[[nodiscard]] const_reverse_iterator rend() const noexcept
 	{
-		return const_reverse_iterator(end());
+		return const_reverse_iterator(begin());
 	}
 
 	[[nodiscard]] const_reverse_iterator crbegin() const noexcept
@@ -602,18 +606,22 @@ private:
 	{
 		T** new_map = new T*[new_size_map]();
 
-		size_type middle_map = _size_map / 2;
+		size_type middle_map = new_size_map / 2;
 
 		if (_map != nullptr) {
-			for (size_type index = _first.bucket(); index <= _last.bucket(); ++index) {
-				new_map[middle_map - index] = _map[index]; // Try to keep pointers in the middle of the map
+			for (size_type index = _first.bucket(), rindex = _last.bucket();
+				index <= _last.bucket(); ++index, --rindex) {
+				new_map[middle_map - rindex] = _map[index]; // Try to keep pointers in the middle of the map
 			}
 			delete[] _map;
 		}
 
+		size_type prev_first_bucket = _first.bucket();
+		size_type prev_last_bucket = _last.bucket();
+
 		_map = new_map;
-		_first.set_bucket(static_cast<difference_type>(middle_map) - _first.bucket());
-		_last.set_bucket(static_cast<difference_type>(middle_map) - _last.bucket());
+		_first.set_bucket(static_cast<difference_type>(middle_map) - prev_last_bucket);
+		_last.set_bucket(static_cast<difference_type>(middle_map) - prev_first_bucket);
 		_size_map = new_size_map;
 	}
 
